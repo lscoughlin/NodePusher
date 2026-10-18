@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="5">
+    <Name Value="NodePusher"/>
+    <Type Value="RunTimeOnly"/>
+    <Author Value="Liam Seamus Coughlin"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <SearchPaths>
+        <IncludeFiles Value="$(ProjOutDir)"/>
+        <OtherUnitFiles Value="src"/>
+        <UnitOutputDirectory Value="build/lazarus/lib/$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+      <Parsing>
+        <SyntaxOptions>
+          <SyntaxMode Value="ObjFPC"/>
+          <UseAnsiStrings Value="True"/>
+        </SyntaxOptions>
+      </Parsing>
+    </CompilerOptions>
+    <Description Value="Streaming writer for JSON-shaped documents. Writes JSON, YAML, or a TJSONData tree."/>
+    <License Value="Apache-2.0"/>
+    <Version Major="0" Minor="1"/>
+    <Files>
+      <Item><Filename Value="src/Pusher.Types.pas"/><UnitName Value="Pusher.Types"/></Item>
+      <Item><Filename Value="src/Pusher.State.pas"/><UnitName Value="Pusher.State"/></Item>
+      <Item><Filename Value="src/Pusher.Emitter.pas"/><UnitName Value="Pusher.Emitter"/></Item>
+      <Item><Filename Value="src/Pusher.Emitter.Json.pas"/><UnitName Value="Pusher.Emitter.Json"/></Item>
+      <Item><Filename Value="src/Pusher.Emitter.Yaml.pas"/><UnitName Value="Pusher.Emitter.Yaml"/></Item>
+      <Item><Filename Value="src/Pusher.Sinks.pas"/><UnitName Value="Pusher.Sinks"/></Item>
+      <Item><Filename Value="src/Pusher.pas"/><UnitName Value="Pusher"/></Item>
+    </Files>
+    <RequiredPkgs>
+      <Item><PackageName Value="FCL"/></Item>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

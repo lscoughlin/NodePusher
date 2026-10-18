@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="12"/>
+    <General>
+      <Flags>
+        <MainUnitHasCreateFormStatements Value="False"/>
+        <MainUnitHasTitleStatement Value="False"/>
+        <MainUnitHasScaledStatement Value="False"/>
+      </Flags>
+      <SessionStorage Value="InProjectDir"/>
+      <Title Value="NodePusherTests"/>
+      <UseAppBundle Value="False"/>
+      <ResourceType Value="res"/>
+    </General>
+    <BuildModes>
+      <Item Name="Default" Default="True"/>
+    </BuildModes>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes Count="1">
+        <Mode0 Name="default">
+          <local><CommandLineParams Value="--all --format=plain"/></local>
+        </Mode0>
+      </Modes>
+    </RunParams>
+    <RequiredPackages>
+      <Item><PackageName Value="FCL"/></Item>
+    </RequiredPackages>
+    <Units>
+      <Unit><Filename Value="NodePusherTests.lpr"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="TestPusherCore.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="TestJson.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="TestYaml.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="TestSinks.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="../src/Pusher.Types.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="../src/Pusher.State.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="../src/Pusher.Emitter.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="../src/Pusher.Emitter.Json.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="../src/Pusher.Emitter.Yaml.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="../src/Pusher.Sinks.pas"/><IsPartOfProject Value="True"/></Unit>
+      <Unit><Filename Value="../src/Pusher.pas"/><IsPartOfProject Value="True"/></Unit>
+    </Units>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <Target><Filename Value="../build/lazarus/NodePusherTests"/></Target>
+    <SearchPaths>
+      <IncludeFiles Value="$(ProjOutDir)"/>
+      <OtherUnitFiles Value="../src"/>
+      <UnitOutputDirectory Value="../build/lazarus/tests/$(TargetCPU)-$(TargetOS)"/>
+    </SearchPaths>
+    <Parsing>
+      <SyntaxOptions><SyntaxMode Value="ObjFPC"/><UseAnsiStrings Value="True"/></SyntaxOptions>
+    </Parsing>
+    <CodeGeneration>
+      <Checks>
+        <IOChecks Value="True"/>
+        <RangeChecks Value="True"/>
+        <OverflowChecks Value="True"/>
+        <StackChecks Value="True"/>
+      </Checks>
+    </CodeGeneration>
+    <Linking>
+      <Debugging><UseHeaptrc Value="True"/></Debugging>
+    </Linking>
+  </CompilerOptions>
+</CONFIG>

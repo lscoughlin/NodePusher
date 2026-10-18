@@ -1,0 +1,7 @@
+build/
+lib/
+*.o
+*.ppu
+*.compiled
+backup/
+plan/
