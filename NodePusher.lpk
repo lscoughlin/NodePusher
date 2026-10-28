@@ -20,7 +20,7 @@
     </CompilerOptions>
     <Description Value="Streaming writer for JSON-shaped documents. Writes JSON, YAML, or a TJSONData tree."/>
     <License Value="Apache-2.0"/>
-    <Version Major="0" Minor="2"/>
+    <Version Major="0" Minor="3"/>
     <Files>
       <Item><Filename Value="src/Pusher.Types.pas"/><UnitName Value="Pusher.Types"/></Item>
       <Item><Filename Value="src/Pusher.State.pas"/><UnitName Value="Pusher.State"/></Item>
