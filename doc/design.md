@@ -218,6 +218,54 @@ begin
 end;
 ```
 
+### Pretty JSON output
+
+`PushOptions(pfJSON, True)` enables pretty printing for `TStreamSink` and
+`TStringSink`. The default indent is two spaces per level. The third
+argument sets the indent width. JSON output is compact when `Pretty` is
+`False`, which is the default.
+
+```pascal
+var
+  Sink: TStringSink;
+  Pusher: TNodePusher;
+begin
+  Sink := TStringSink.Create(PushOptions(pfJSON, True));
+  Pusher := TNodePusher.Create(Sink);
+  Pusher
+    .OpenObject
+      .PropertyString('name', 'NodePusher')
+      .PropertyName('tags')
+      .OpenArray.AddString('json').AddString('yaml').CloseArray
+    .CloseObject
+    .Flush;
+  WriteLn(Sink.Text);
+end;
+```
+
+JSON output:
+
+```json
+{
+  "name": "NodePusher",
+  "tags": [
+    "json",
+    "yaml"
+  ]
+}
+```
+
+The equivalent stream configuration is
+`TStreamSink.Create(Stream, PushOptions(pfJSON, True))`.
+`PushOptions(pfJSON, True, 4)` uses four spaces per level. An indent width
+of zero keeps the line breaks without leading spaces. A negative indent
+width raises `EPushError` when the sink is created.
+
+Pretty JSON has one property or array item per line, with a space after
+each property colon. Empty objects and arrays stay as `{}` and `[]`.
+Line breaks use the platform `LineEnding`. The output has no final line
+break. The `Pretty` option has no effect in YAML mode.
+
 ### Write YAML to a string
 
 ```pascal

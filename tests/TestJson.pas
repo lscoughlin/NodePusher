@@ -25,6 +25,7 @@ type
     procedure StringEscapes;
     procedure EmptyContainers;
     procedure PrettyOutput;
+    procedure PrettyStreamOutput;
     procedure Numbers;
     procedure BigDecimal;
     procedure NonAscii;
@@ -89,6 +90,40 @@ begin
     .CloseObject.Flush;
   AssertEquals('{' + NL + '  "a": 1,' + NL + '  "b": [' + NL + '    1,' + NL +
     '    2' + NL + '  ],' + NL + '  "c": {}' + NL + '}', S.Text);
+end;
+
+procedure TTestJson.PrettyStreamOutput;
+var
+  Stream: TStringStream;
+  P: TNodePusher;
+  Width: Integer;
+  Indent: String;
+begin
+  for Width := 0 to 4 do
+  begin
+    Stream := TStringStream.Create('');
+    try
+      P := TNodePusher.Create(
+        TStreamSink.Create(Stream, PushOptions(pfJSON, True, Width)));
+      P.OpenArray
+        .OpenObject
+          .PropertyString('text', 'a' + #10 + 'b')
+          .PropertyName('empty').OpenArray.CloseArray
+        .CloseObject
+        .AddBoolean(True)
+        .AddNull
+      .CloseArray.Flush;
+      Indent := StringOfChar(' ', Width);
+      AssertEquals('[' + NL + Indent + '{' + NL +
+        Indent + Indent + '"text": "a\nb",' + NL +
+        Indent + Indent + '"empty": []' + NL +
+        Indent + '},' + NL + Indent + 'true,' + NL +
+        Indent + 'null' + NL + ']', Stream.DataString);
+    finally
+      P := Default(TNodePusher);
+      Stream.Free;
+    end;
+  end;
 end;
 
 procedure TTestJson.Numbers;
