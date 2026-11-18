@@ -15,10 +15,18 @@ unit TestSinks;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, fpjson, jsonparser, FmtBCD,
+  Classes, SysUtils, StreamEx, fpcunit, testregistry, fpjson, jsonparser, FmtBCD,
   Pusher, Pusher.Types, Pusher.Sinks;
 
 type
+  { TStreamWriter.Flush of FPC 3.2.4 passes the address of the buffer array
+    to WriteBuffer, so the stream gets the bytes of a pointer. This class
+    writes the contents of the buffer. }
+  TFixedStreamWriter = class(TStreamWriter)
+  public
+    procedure Flush; override;
+  end;
+
   TTestSinks = class(TTestCase)
   private
     procedure Build(var P: TNodePusher);
@@ -40,9 +48,25 @@ type
     procedure UnicodeStringIsConverted;
     procedure TextHasUtf8CodePage;
     procedure FourByteCodePointPasses;
+    procedure WriterUtf8EqualsString;
+    procedure WriterYamlEqualsString;
+    procedure WriterUtf16;
+    procedure WriterUtf16LargeSplit;
+    procedure WriterStreamSplitSequence;
   end;
 
 implementation
+
+procedure TFixedStreamWriter.Flush;
+var
+  Count: Integer;
+begin
+  if (BaseStream = nil) or (FBufferIndex = 0) then
+    Exit;
+  Count := FBufferIndex;
+  FBufferIndex := 0;
+  BaseStream.WriteBuffer(FBuffer[0], Count);
+end;
 
 { AssertEquals can pick a UnicodeString overload and convert the bytes.
   This check compares the bytes as they are. }
@@ -354,6 +378,162 @@ begin
   P := TNodePusher.Create(Yaml);
   P.AddString(Value).Flush;
   AssertBytes(#$F0#$9F#$98#$80 + LineEnding, Yaml.Text);
+end;
+
+procedure TTestSinks.WriterUtf8EqualsString;
+var
+  Str: TStringSink;
+  Mem: TMemoryStream;
+  W: TStreamWriter;
+  P: TNodePusher;
+  Got: UTF8String;
+begin
+  Str := TStringSink.Create(pfJSON);
+  P := TNodePusher.Create(Str);
+  Build(P);
+  Mem := TMemoryStream.Create;
+  W := TFixedStreamWriter.Create(Mem);
+  try
+    P := TNodePusher.Create(TWriterSink.Create(W, pfJSON));
+    Build(P);
+    P := Default(TNodePusher);
+    SetLength(Got, Mem.Size);
+    Move(Mem.Memory^, Got[1], Mem.Size);
+    AssertBytes(Str.Text, Got);
+  finally
+    W.Free;
+    Mem.Free;
+  end;
+end;
+
+procedure TTestSinks.WriterYamlEqualsString;
+var
+  Str: TStringSink;
+  Mem: TMemoryStream;
+  W: TStreamWriter;
+  P: TNodePusher;
+  Got: UTF8String;
+begin
+  Str := TStringSink.Create(pfYAML);
+  P := TNodePusher.Create(Str);
+  Build(P);
+  Mem := TMemoryStream.Create;
+  W := TFixedStreamWriter.Create(Mem);
+  try
+    P := TNodePusher.Create(TWriterSink.Create(W, pfYAML));
+    Build(P);
+    P := Default(TNodePusher);
+    SetLength(Got, Mem.Size);
+    Move(Mem.Memory^, Got[1], Mem.Size);
+    AssertBytes(Str.Text, Got);
+  finally
+    W.Free;
+    Mem.Free;
+  end;
+end;
+
+{ A UTF-16 writer receives UTF-16 code units, not UTF-8 bytes. }
+procedure TTestSinks.WriterUtf16;
+var
+  Mem: TMemoryStream;
+  W: TStreamWriter;
+  P: TNodePusher;
+  Units: array of Word;
+  Expected: UnicodeString;
+  I: Integer;
+begin
+  Expected := UnicodeString('["caf') + #$00E9 + #$D83D#$DE00 + '"]';
+  Mem := TMemoryStream.Create;
+  W := TFixedStreamWriter.Create(Mem, TEncoding.Unicode);
+  try
+    P := TNodePusher.Create(TWriterSink.Create(W, pfJSON));
+    P.OpenArray.AddString(UTF8Encode(UnicodeString('caf') + #$00E9 + #$D83D#$DE00))
+      .CloseArray.Flush;
+    P := Default(TNodePusher);
+    AssertEquals(Length(Expected) * 2, Integer(Mem.Size));
+    SetLength(Units, Length(Expected));
+    Move(Mem.Memory^, Units[0], Mem.Size);
+    for I := 0 to High(Units) do
+      AssertEquals(Ord(Expected[I + 1]), Units[I]);
+  finally
+    W.Free;
+    Mem.Free;
+  end;
+end;
+
+{ The emitter buffer ends in the middle of a character at some point. The
+  output stays valid in the writer encoding. }
+procedure TTestSinks.WriterUtf16LargeSplit;
+var
+  Mem: TMemoryStream;
+  W: TStreamWriter;
+  P: TNodePusher;
+  Value: UTF8String;
+  Units: array of WideChar;
+  I, Count: Integer;
+begin
+  Value := UTF8Encode(UnicodeString(#$00E9#$20AC#$D83D#$DE00));
+  Count := 30000;
+  Mem := TMemoryStream.Create;
+  W := TFixedStreamWriter.Create(Mem, TEncoding.Unicode);
+  try
+    P := TNodePusher.Create(TWriterSink.Create(W, pfJSON));
+    P.OpenArray;
+    for I := 1 to Count do
+      P.AddString(Value);
+    P.CloseArray.Flush;
+    P := Default(TNodePusher);
+    SetLength(Units, Mem.Size div 2);
+    Move(Mem.Memory^, Units[0], Mem.Size);
+    { each element is a quote, four code units, a quote, and a comma, except
+      that the last element has no comma }
+    AssertEquals(2 + Count * 7 - 1, Length(Units));
+    for I := 0 to Count - 1 do
+    begin
+      AssertEquals(#$00E9, Units[1 + I * 7 + 1]);
+      AssertEquals(#$20AC, Units[1 + I * 7 + 2]);
+      AssertEquals(#$D83D, Units[1 + I * 7 + 3]);
+      AssertEquals(#$DE00, Units[1 + I * 7 + 4]);
+    end;
+  finally
+    W.Free;
+    Mem.Free;
+  end;
+end;
+
+{ A write that ends inside a UTF-8 sequence waits for the next bytes. }
+procedure TTestSinks.WriterStreamSplitSequence;
+var
+  Mem: TMemoryStream;
+  W: TStreamWriter;
+  S: TWriterStream;
+  Data: array[0..8] of Byte;
+  Units: array[0..2] of Word;
+  I: Integer;
+begin
+  { U+20AC, U+1F600, and U+00E9 }
+  Data[0] := $E2; Data[1] := $82; Data[2] := $AC;
+  Data[3] := $F0; Data[4] := $9F; Data[5] := $98; Data[6] := $80;
+  Data[7] := $C3; Data[8] := $A9;
+  Mem := TMemoryStream.Create;
+  W := TFixedStreamWriter.Create(Mem, TEncoding.Unicode);
+  S := TWriterStream.Create(W);
+  try
+    for I := 0 to High(Data) do
+      S.WriteBuffer(Data[I], 1);
+    W.Flush;
+    AssertEquals(8, Integer(Mem.Size));
+    Move(Mem.Memory^, Units[0], 6);
+    AssertEquals($20AC, Units[0]);
+    AssertEquals($D83D, Units[1]);
+    AssertEquals($DE00, Units[2]);
+    Move((Mem.Memory + 6)^, Units[0], 2);
+    AssertEquals($00E9, Units[0]);
+  finally
+    S.Free;
+    W.Free;
+    Mem.Free;
+  end;
 end;
 
 initialization

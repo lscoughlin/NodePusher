@@ -15,7 +15,7 @@ unit Pusher.Sinks;
 interface
 
 uses
-  Classes, SysUtils, fpjson, FmtBCD, Pusher.Types, Pusher.Emitter,
+  Classes, SysUtils, StreamEx, fpjson, FmtBCD, Pusher.Types, Pusher.Emitter,
   Pusher.Emitter.Json, Pusher.Emitter.Yaml;
 
 type
@@ -46,6 +46,36 @@ type
   public
     constructor Create(AStream: TStream; AFormat: TPushFormat = pfJSON); overload;
     constructor Create(AStream: TStream; const AOptions: TPushOptions); overload;
+  end;
+
+  { A write-only stream that passes UTF-8 bytes to a TStreamWriter. The
+    stream converts the bytes to the encoding of the writer. }
+  TWriterStream = class(TStream)
+  private
+    FWriter: TStreamWriter;
+    FUtf8: Boolean;
+    FPending: array[0..2] of Byte;
+    FPendingLength: Integer;
+    procedure Put(const ABytes: TBytes);
+  public
+    constructor Create(AWriter: TStreamWriter);
+    function Read(var Buffer; Count: Longint): Longint; override;
+    function Write(const Buffer; Count: Longint): Longint; override;
+    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
+  end;
+
+  { Writes text through a TStreamWriter. The writer sets the encoding. The
+    caller owns the writer and frees it after the sink. Flush also flushes
+    the writer. }
+  TWriterSink = class(TTextSink)
+  private
+    FStream: TWriterStream;
+    FWriter: TStreamWriter;
+  public
+    constructor Create(AWriter: TStreamWriter; AFormat: TPushFormat = pfJSON); overload;
+    constructor Create(AWriter: TStreamWriter; const AOptions: TPushOptions); overload;
+    destructor Destroy; override;
+    procedure Flush; override;
   end;
 
   { Writes text to an internal string. Text is complete after Flush. }
@@ -179,6 +209,125 @@ constructor TStreamSink.Create(AStream: TStream; const AOptions: TPushOptions);
 begin
   inherited Create;
   Setup(AStream, AOptions);
+end;
+
+{ TWriterStream }
+
+type
+  { Gives access to the protected byte output of TStreamWriter. }
+  TWriterAccess = class(TStreamWriter)
+  public
+    procedure PutBytes(const ABytes: TBytes);
+  end;
+
+procedure TWriterAccess.PutBytes(const ABytes: TBytes);
+begin
+  WriteBytes(ABytes);
+end;
+
+constructor TWriterStream.Create(AWriter: TStreamWriter);
+begin
+  inherited Create;
+  FWriter := AWriter;
+  FUtf8 := AWriter.Encoding.CodePage = CP_UTF8;
+end;
+
+procedure TWriterStream.Put(const ABytes: TBytes);
+begin
+  if Length(ABytes) > 0 then
+    TWriterAccess(FWriter).PutBytes(ABytes);
+end;
+
+function TWriterStream.Read(var Buffer; Count: Longint): Longint;
+begin
+  raise EPushError.Create('A writer stream cannot be read');
+  Result := 0;
+end;
+
+function TWriterStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
+begin
+  raise EPushError.Create('A writer stream cannot seek');
+  Result := 0;
+end;
+
+{ The writer gets whole characters only. A write can end in the middle of a
+  UTF-8 sequence, so the last bytes of an incomplete sequence wait for the
+  next write. }
+function TWriterStream.Write(const Buffer; Count: Longint): Longint;
+var
+  Data, Text: TBytes;
+  Total, Keep, Back: Integer;
+  U: UTF8String;
+begin
+  Result := Count;
+  if Count <= 0 then
+    Exit;
+  Data := nil;
+  if FUtf8 then
+  begin
+    SetLength(Data, Count);
+    Move(Buffer, Data[0], Count);
+    Put(Data);
+    Exit;
+  end;
+  Total := FPendingLength + Count;
+  SetLength(Data, Total);
+  if FPendingLength > 0 then
+    Move(FPending[0], Data[0], FPendingLength);
+  Move(Buffer, Data[FPendingLength], Count);
+  Keep := 0;
+  Back := 1;
+  while (Back <= 3) and (Back <= Total) do
+  begin
+    if Data[Total - Back] and $C0 <> $80 then
+    begin
+      { a lead byte: it starts an incomplete sequence when too few bytes follow }
+      if ((Data[Total - Back] and $E0 = $C0) and (Back < 2)) or
+         ((Data[Total - Back] and $F0 = $E0) and (Back < 3)) or
+         ((Data[Total - Back] and $F8 = $F0) and (Back < 4)) then
+        Keep := Back;
+      Break;
+    end;
+    Inc(Back);
+  end;
+  FPendingLength := Keep;
+  if Keep > 0 then
+    Move(Data[Total - Keep], FPending[0], Keep);
+  Dec(Total, Keep);
+  if Total > 0 then
+  begin
+    SetLength(U, Total);
+    Move(Data[0], U[1], Total);
+    Text := FWriter.Encoding.GetBytes(UnicodeString(UTF8Decode(U)));
+    Put(Text);
+  end;
+end;
+
+{ TWriterSink }
+
+constructor TWriterSink.Create(AWriter: TStreamWriter; AFormat: TPushFormat);
+begin
+  Create(AWriter, PushOptions(AFormat));
+end;
+
+constructor TWriterSink.Create(AWriter: TStreamWriter; const AOptions: TPushOptions);
+begin
+  inherited Create;
+  FWriter := AWriter;
+  FStream := TWriterStream.Create(AWriter);
+  Setup(FStream, AOptions);
+end;
+
+destructor TWriterSink.Destroy;
+begin
+  inherited Destroy;  // frees the emitter first
+  FStream.Free;
+end;
+
+procedure TWriterSink.Flush;
+begin
+  inherited Flush;
+  FWriter.Flush;
 end;
 
 { TStringSink }

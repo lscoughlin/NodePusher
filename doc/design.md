@@ -37,6 +37,7 @@ TNodePusher        structure checking, state stack
 IPushSink          token interface
     |
     +-- TStreamSink   JSON or YAML text to a TStream
+    +-- TWriterSink   JSON or YAML text to a StreamEx TStreamWriter
     +-- TStringSink   JSON or YAML text to a UTF8String
     +-- TNodeSink     TJSONData tree
 ```
@@ -50,7 +51,7 @@ IPushSink          token interface
 | `Pusher.Emitter` | The emitter base class, the output buffer, and the number formatters |
 | `Pusher.Emitter.Json` | The JSON emitter |
 | `Pusher.Emitter.Yaml` | The YAML emitter |
-| `Pusher.Sinks` | `TStreamSink`, `TStringSink`, `TNodeSink` |
+| `Pusher.Sinks` | `TStreamSink`, `TWriterSink`, `TStringSink`, `TNodeSink` |
 | `Pusher` | `TNodePusher` and the tree walker |
 
 Each unit holds one concept. A unit stays under 2000 lines.
@@ -114,8 +115,17 @@ token arrives.
 | Sink | Target | Result access |
 | --- | --- | --- |
 | `TStreamSink` | `TStream` owned by the caller | the stream |
+| `TWriterSink` | StreamEx `TStreamWriter` owned by the caller | the writer |
 | `TStringSink` | internal string buffer | `Text` property after `Flush` |
 | `TNodeSink` | `TJSONData` tree | `TakeRoot` function |
+
+`TWriterSink` sends the UTF-8 output of the emitter through a write-only
+`TWriterStream`. The stream converts the bytes to the encoding of the writer
+and holds back the bytes of an incomplete UTF-8 sequence. `Flush` also
+flushes the writer. FPC 3.2.4 has a defect in `TStreamWriter.Flush`: the
+method passes the address of the buffer array to `WriteBuffer`, so the target
+stream receives the bytes of a pointer. A writer class that corrects `Flush`
+is necessary on that version.
 
 `TNodeSink` keeps a stack of open `TJSONObject` and `TJSONArray` nodes.
 `TakeRoot` transfers ownership of the tree to the caller. If the sink is

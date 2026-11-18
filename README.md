@@ -154,6 +154,13 @@ type
     constructor Create(AStream: TStream; const AOptions: TPushOptions); overload;
   end;
 
+  { Writes text through a StreamEx TStreamWriter. The writer sets the
+    encoding. The caller owns the writer. Flush also flushes the writer. }
+  TWriterSink = class(TTextSink)
+    constructor Create(AWriter: TStreamWriter; AFormat: TPushFormat = pfJSON); overload;
+    constructor Create(AWriter: TStreamWriter; const AOptions: TPushOptions); overload;
+  end;
+
   { Writes text to an internal string. Text is complete after Flush. }
   TStringSink = class(TTextSink)
     constructor Create(AFormat: TPushFormat = pfJSON); overload;
